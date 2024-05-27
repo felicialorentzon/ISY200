@@ -1,6 +1,5 @@
 #include "C12832/C12832.h"
 #include "mbed.h"
-#include <chrono>
 #include <string>
 
 using namespace std;
@@ -10,10 +9,9 @@ using namespace std;
 #define STEP 4
 #define TONE 1.0 / 440
 #define INTENSITY 0.5
-#define DURATION 100ms
 #define BAUD 9600
-#define PERIOD 500ms
-#define DEBOUNCE_DURATION 200ms
+#define PERIOD 1000
+#define DEBOUNCE_DURATION 200
 
 void beat();
 void raise_beat();
@@ -22,7 +20,7 @@ void update_lcd();
 void write_rate(int rate);
 void print(std::string input);
 
-BufferedSerial pc(USBTX, USBRX, BAUD);
+Serial pc(USBTX, USBRX, BAUD);
 InterruptIn up_button(p15);
 InterruptIn down_button(p12);
 DigitalOut redled(p23);
@@ -32,7 +30,7 @@ Ticker beat_rate;
 Timer debouncer;
 C12832 lcd(p5, p7, p6, p8, p11);
 PwmOut speaker(p26);
-std::chrono::milliseconds period = 500ms;
+float period;
 int rate(120);
 
 int main() {
@@ -42,68 +40,66 @@ int main() {
   blueled = 1;
   redled = 0;
   speaker.period(TONE);
-  speaker = INTENSITY;
+  speaker = 0.5;
   debouncer.start();
+  period = 60.0 / (rate*2);
 
-  print("\r\n");
-  print("mbed metronome!\r\n");
-  print("_______________\r\n");
-
-  period = PERIOD;
-  redled = 1;
+  string screenTextDefault = "\r\nmbed metronome!\r\n_______________\r\n";
+  print(screenTextDefault);
 
   beat_rate.attach(&beat, period);
 
   lcd.cls();
-  lcd.locate(0, 3);
-  lcd.printf("Metronome");
+  lcd.locate(0, 0);
+  update_lcd();
 
   while (1) {
-    ThisThread::sleep_for(100ms);
+    update_lcd();
+    ThisThread::sleep_for(500);
   }
 }
 
 void beat() {
   beat_rate.attach(&beat, period);
   redled = !redled;
-
-  if (speaker) {
+  
+  if (speaker){
     speaker = 0;
-  } else {
-    speaker = INTENSITY;
   }
+  else {
+    speaker = 0.5;
+  } 
 }
 
 void raise_beat() {
-  if (std::chrono::duration_cast<std::chrono::milliseconds>(
-          debouncer.elapsed_time()) > DEBOUNCE_DURATION) {
+  if (debouncer.read_ms() > DEBOUNCE_DURATION) {
     debouncer.reset();
     rate += STEP;
 
     if (rate > MAX)
       rate = MAX;
 
-    period = 60s / rate;
-    write_rate(rate);
+    period = 60.0 / (rate*2);
   }
 }
 
 void lower_beat() {
-  if (std::chrono::duration_cast<std::chrono::milliseconds>(
-          debouncer.elapsed_time()) > DEBOUNCE_DURATION) {
+  
+  if (debouncer.read_ms() > DEBOUNCE_DURATION) {
     debouncer.reset();
     rate -= STEP;
 
     if (rate < MIN)
       rate = MIN;
 
-    period = 60s / rate;
-    write_rate(rate);
-  }
+    period = 60.0 / (rate*2);}
 }
+
 void update_lcd() {
-  lcd.locate(0, 15);
+  lcd.locate(0, 2);
+  lcd.printf("Felicia o Stina");
   lcd.printf("%d bpm", rate);
+
 }
 
 void write_rate(int rate) {
